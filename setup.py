@@ -8,7 +8,9 @@ from Cython.Build import cythonize
 
 sources = ["cjam/_jam_axi.pyx"]
 interp = ["src/interp/interp2dpol.c"]
-jam = ["src/jam/jam_axi_rms.c", "src/jam/jam_axi_rms_mgeint.c",
+jam = ["src/jam/jam_axi_cylin_rms.c", "src/jam/jam_axi_cylin_rms_mgeint.c",
+    "src/jam/jam_axi_cylin_rms_mmt.c", "src/jam/jam_axi_cylin_rms_wmmt.c"
+    "src/jam/jam_axi_rms.c", "src/jam/jam_axi_rms_mgeint.c",
     "src/jam/jam_axi_rms_mmt.c", "src/jam/jam_axi_rms_wmmt.c",
     "src/jam/jam_axi_vel.c", "src/jam/jam_axi_vel_losint.c",
     "src/jam/jam_axi_vel_mgeint.c", "src/jam/jam_axi_vel_mmt.c",
