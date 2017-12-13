@@ -185,6 +185,8 @@ def axisymmetric(xp, yp, tracer_mge, potential_mge, distance, beta=0, kappa=0,
 
     return moments
 
+
+
 def axi_cylin_rms(xp, yp, incl, lum_area, lum_sigma, lum_q, pot_area, pot_sigma, pot_q,
     beta, nrad=30, nang=7):
 
@@ -206,9 +208,6 @@ def axi_cylin_rms(xp, yp, incl, lum_area, lum_sigma, lum_q, pot_area, pot_sigma,
     cdef double [:] c_rxx
     cdef double [:] c_ryy
     cdef double [:] c_rzz
-    cdef double [:] c_rxy
-    cdef double [:] c_rxz
-    cdef double [:] c_ryz
 
     # set C arrays to be views into the input arrays
     c_xp = np.array(xp, dtype=np.double, copy=False)
@@ -228,18 +227,59 @@ def axi_cylin_rms(xp, yp, incl, lum_area, lum_sigma, lum_q, pot_area, pot_sigma,
     c_ryy = ryy
     rzz = np.empty(nxy)
     c_rzz = rzz
-    rxy = np.empty(nxy)
-    c_rxy = rxy
-    rxz = np.empty(nxy)
-    c_rxz = rxz
-    ryz = np.empty(nxy)
-    c_ryz = ryz
 
     # now call the JAM code
     cython_jam.jam_axi_cylin_rms(&c_xp[0], &c_yp[0], nxy, incl,
         &c_lum_area[0], &c_lum_sigma[0], &c_lum_q[0], lum_total,
         &c_pot_area[0], &c_pot_sigma[0], &c_pot_q[0], pot_total,
-        &c_beta[0], nrad, nang, &c_rxx[0], &c_ryy[0], &c_rzz[0], &c_rxy[0],
-        &c_rxz[0], &c_ryz[0])
+        &c_beta[0], nrad, nang, &c_rxx[0], &c_ryy[0], &c_rzz[0])
 
-    return rxx, ryy, rzz, rxy, rxz, ryz
+    return rxx, ryy, rzz
+
+
+
+def axisymmetric_cylin(xp, yp, tracer_mge, potential_mge, distance, beta=0, kappa=0,
+    nscale=1, mscale=1, incl=np.pi/2.*u.rad, mbh=0*u.Msun, rbh=0*u.arcsec,
+    nrad=30, nang=7):
+
+    # make sure anisotropy and rotation arrays are the correct length
+    beta = np.ones(len(tracer_mge))*beta
+    kappa = np.ones(len(tracer_mge))*kappa
+
+    # copy MGEs so that changes we make here aren't propagated
+    tracer_copy = tracer_mge.copy()
+    potential_copy = potential_mge.copy()
+
+    # adjust tracer MGE by Nscale
+    tracer_copy["i"] *= nscale
+
+    # adjust potential MGE by M/L
+    potential_copy["i"] *= mscale
+
+    # add BH to potential gaussian
+    if mbh>0 and rbh>0:
+        potential_copy.add_row([0, mbh/2/np.pi/(rbh*distance/u.rad).to("pc")**2,
+            rbh, 1])
+        potential_copy.sort("n")
+
+    # calculate second moments
+    rxx, ryy, rzz = axi_cylin_rms(\
+        (xp*distance/u.rad).to("pc").value,
+        (yp*distance/u.rad).to("pc").value,
+        incl.to("rad").value,
+        (tracer_copy["i"]).to("Lsun/pc**2").value,
+        (tracer_copy["s"]*distance/u.rad).to("pc").value,
+        tracer_copy["q"],
+        potential_copy["i"].to("Msun/pc**2").value,
+        (potential_copy["s"]*distance/u.rad).to("pc").value,
+        potential_copy["q"],
+        beta)
+
+    # put results into astropy table, also convert PMs to mas/yr
+    kms2masyr = (u.km/u.s*u.rad/distance).to("mas/yr")
+    moments = table.QTable()
+    moments["v2xx"] = rxx*kms2masyr**2
+    moments["v2yy"] = ryy*kms2masyr**2
+    moments["v2zz"] = rzz*(u.km/u.s)**2
+
+    return moments

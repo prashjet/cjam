@@ -35,8 +35,7 @@
 void jam_axi_cylin_rms(double *xp, double *yp, int nxy, double incl, \
 double *lum_area, double *lum_sigma, double *lum_q, int lum_total, \
 double *pot_area, double *pot_sigma, double *pot_q, int pot_total, \
-double *beta, int nrad, int nang, double *rxx, double *ryy, double *rzz,
-double *rxy, double *rxz, double *ryz) {
+double *beta, int nrad, int nang, double *rxx, double *ryy, double *rzz) {
 
     struct multigaussexp lum, pot;
     double* mu;
@@ -70,19 +69,10 @@ double *rxy, double *rxz, double *ryz) {
         for (i=0; i<nxy; i++) ryy[i] = mu[i];
         mu = jam_axi_cylin_rms_mmt(xp, yp, nxy, incl, &lum, &pot, beta, nrad, nang, 3);
         for (i=0; i<nxy; i++) rzz[i] = mu[i];
-        mu = jam_axi_cylin_rms_mmt(xp, yp, nxy, incl, &lum, &pot, beta, nrad, nang, 4);
-        for (i=0; i<nxy; i++) rxy[i] = mu[i];
-        mu = jam_axi_cylin_rms_mmt(xp, yp, nxy, incl, &lum, &pot, beta, nrad, nang, 5);
-        for (i=0; i<nxy; i++) rxz[i] = mu[i];
-        mu = jam_axi_cylin_rms_mmt(xp, yp, nxy, incl, &lum, &pot, beta, nrad, nang, 6);
-        for (i=0; i<nxy; i++) ryz[i] = mu[i];
     }
     else {
         for (i=0; i<nxy; i++) ryy[i] = mu[i];
         for (i=0; i<nxy; i++) rzz[i] = mu[i];
-        for (i=0; i<nxy; i++) rxy[i] = 0.;
-        for (i=0; i<nxy; i++) rxz[i] = 0.;
-        for (i=0; i<nxy; i++) ryz[i] = 0.;
     }
 
     // free memory
