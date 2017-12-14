@@ -38,42 +38,37 @@
 #include "../interp/interp.h"
 
 
-double* jam_axi_cylin_rms_mmt( double *xp, double *yp, int nxy, double incl, \
+double** jam_axi_cylin_rms_mmt( double *xp, double *yp, int nxy, double incl, \
         struct multigaussexp *lum, struct multigaussexp *pot, double *beta, \
-        int nrad, int nang, int vv ) {
+        int nrad, int nang, int check ) {
 
-    int i, j, k, npol;
+    int i, j, k, l, npol;
     double qmed, *rell, *r, *e, step, rmax, *lograd, *rad, *ang, *angvec;
-    double *wm2, *surf, *mu, *xpol, *ypol, **mupol;
+    double **wm2, *surf, **mu, *mui, *xpol, *ypol, ***mupol;
 
+    // array to store second moment
+    mu = (double **) malloc( 3 * sizeof( double * ) );
+    for ( i = 0; i < 3; i++ ) \
+        mu[i] = (double *) malloc( nxy * sizeof( double ) );
 
     // skip the interpolation when computing just a few points
     if ( nrad * nang > nxy ) {
 
         // weighted second moment
-        wm2 = jam_axi_cylin_rms_wmmt( xp, yp, nxy, incl, lum, pot, beta, vv );
-
-        if ( vv == 4 ) {
-            for ( i = 0; i < nxy; i++ ) {
-                if ( xp[i] * yp[i] >= 0. ) wm2[i] *= -1.;
-            }
-        }
-
-        if ( vv == 5 ) {
-            for ( i = 0; i < nxy; i++ ) {
-                if ( xp[i] * yp[i] < 0. ) wm2[i] *= -1.;
-            }
-        }
+        wm2 = jam_axi_cylin_rms_wmmt( xp, yp, nxy, incl, lum, pot, beta, check );
 
         // surface brightness
         surf = mge_surf( lum, xp, yp, nxy );
 
         // second moment
-        mu = (double *) malloc( nxy * sizeof( double ) );
-        for ( i = 0; i < nxy; i++ ) {
-            mu[i] = wm2[i] / surf[i];
+        for ( i = 0; i < 3; i++ ) {
+            for ( j = 0; j < nxy; j++ ) {
+                mu[i][j] = wm2[i][j] / surf[j];
+            }
         }
 
+        for ( i = 0; i < 3; i++ ) \
+            free( wm2[i] );
         free( wm2 );
         free( surf );
 
@@ -116,33 +111,37 @@ double* jam_axi_cylin_rms_mmt( double *xp, double *yp, int nxy, double incl, \
     }
 
     // set up interpolation grid arrays
-    mupol = (double **) malloc( nrad * sizeof( double * ) );
-    for ( i = 0; i < nrad; i++ ) \
-        mupol[i] = (double *) malloc( ( 4 * nang - 3 ) * sizeof( double ) );
-
+    mupol = (double ***) malloc( 3 * sizeof( double ** ) );
+    for ( i = 0; i < 3; i++ ) {
+        mupol[i] = (double **) malloc( nrad * sizeof( double * ) );
+        for ( j = 0; j < nrad; j++ ) {
+            mupol[i][j] = (double *) malloc( ( 4 * nang - 3 ) * sizeof( double ) );
+        }
+    }
 
     // ---------------------------------
 
 
     // weighted second moment on polar grid
-    wm2 = jam_axi_cylin_rms_wmmt( xpol, ypol, npol, incl, lum, pot, beta, vv );
+    wm2 = jam_axi_cylin_rms_wmmt( xpol, ypol, npol, incl, lum, pot, beta, check );
 
     // surface brightness on polar grid
     surf = mge_surf( lum, xpol, ypol, npol );
 
     // model velocity on the polar grid
-    for ( i = 0; i < nrad; i++ ) {
-        for ( j = 0; j < nang; j++ ) {
+    for ( i = 0; i < 3; i++ ) {
+        for ( j = 0; j < nrad; j++ ) {
+            for ( k = 0; k < nang; k++ ) {
 
-            k = i * nang + j;
-            mupol[i][j] = wm2[k] / surf[k];
-            mupol[i][2*nang-2-j] = mupol[i][j];
-            mupol[i][2*nang-2+j] = mupol[i][j];
-            mupol[i][4*nang-4-j] = mupol[i][j];
+                l = j * nang + k;
+                mupol[i][j][k] = wm2[i][l] / surf[l];
+                mupol[i][j][2*nang-2-k] = mupol[i][j][k];
+                mupol[i][j][2*nang-2+k] = mupol[i][j][k];
+                mupol[i][j][4*nang-4-k] = mupol[i][j][k];
 
+            }
         }
     }
-
 
     // ---------------------------------
 
@@ -155,15 +154,18 @@ double* jam_axi_cylin_rms_mmt( double *xp, double *yp, int nxy, double incl, \
         e[i] = atan2( yp[i] / qmed, xp[i] );
     }
 
-    mu = interp2dpol( mupol, rad, angvec, r, e, nrad, 4*nang-3, nxy );
-
-    // fix signs of xy and xz second moments
-    if ( vv == 4 ) for ( i = 0; i < nxy; i++ ) \
-        if ( xp[i] * yp[i] >= 0. ) mu[i] *= -1.;
-
-    if ( vv == 5 ) for ( i = 0; i < nxy; i++ ) \
-        if ( xp[i] * yp[i] < 0. ) mu[i] *= -1.;
-
+    mui = interp2dpol( mupol[0], rad, angvec, r, e, nrad, 4*nang-3, nxy );
+    for ( i = 0; i < nxy; i++ ) \
+        mu[0][i] = mui[i];
+    free( mui );
+    mui = interp2dpol( mupol[1], rad, angvec, r, e, nrad, 4*nang-3, nxy );
+    for ( i = 0; i < nxy; i++ ) \
+        mu[1][i] = mui[i];
+    free( mui );
+    mui = interp2dpol( mupol[2], rad, angvec, r, e, nrad, 4*nang-3, nxy );
+    for ( i = 0; i < nxy; i++ ) \
+        mu[2][i] = mui[i];
+    free( mui );
 
     free( rell );
     free( rad );
@@ -171,8 +173,13 @@ double* jam_axi_cylin_rms_mmt( double *xp, double *yp, int nxy, double incl, \
     free( angvec );
     free( xpol );
     free( ypol );
-    for ( i = 0; i < nrad; i++ ) free( mupol[i] );
+    for ( i = 0; i < 3; i++ ) {
+        for ( j = 0; j < nrad; j++ ) free( mupol[i][j] );
+        free( mupol[i] );
+    }
     free( mupol );
+    for ( i = 0; i < 3; i++ ) \
+        free( wm2[i] );
     free( wm2 );
     free( surf );
     free( r );

@@ -36,14 +36,14 @@
 #include "../tools/tools.h"
 
 
-double *jam_axi_cylin_rms_wmmt( double *xp, double *yp, int nxy, double incl, \
+double **jam_axi_cylin_rms_wmmt( double *xp, double *yp, int nxy, double incl, \
         struct multigaussexp *lum, struct multigaussexp *pot, \
-        double *beta, int vv ) {
+        double *beta, int check ) {
 
     struct params_rmsint p;
     struct multigaussexp ilum, ipot;
     double ci, si, *kani, *s2l, *q2l, *s2q2l, *s2p, *e2p;
-    double result, error, *sb_mu2;
+    double result, error, **sb_mu2;
     int i;
 
     // convert from projected MGEs to intrinsic MGEs
@@ -88,8 +88,6 @@ double *jam_axi_cylin_rms_wmmt( double *xp, double *yp, int nxy, double incl, \
     p.s2q2l = s2q2l;
     p.s2p = s2p;
     p.e2p = e2p;
-    p.vv = vv;
-
 
     // perform integration
 
@@ -97,7 +95,12 @@ double *jam_axi_cylin_rms_wmmt( double *xp, double *yp, int nxy, double incl, \
     gsl_function F;
     F.function = &jam_axi_cylin_rms_mgeint;
 
-    sb_mu2 = (double *) malloc( nxy * sizeof( double ) );
+    // set up interpolation grid arrays
+    sb_mu2 = (double **) malloc( 3 * sizeof( double * ) );
+    for ( i = 0; i < 3; i++ ) \
+        sb_mu2[i] = (double *) malloc( nxy * sizeof( double ) );
+
+    p.vv = 1;
     for ( i = 0; i < nxy; i++ ) {
         p.x2 = xp[i] * xp[i];
         p.y2 = yp[i] * yp[i];
@@ -105,7 +108,37 @@ double *jam_axi_cylin_rms_wmmt( double *xp, double *yp, int nxy, double incl, \
         F.params = &p;
         gsl_integration_qag( &F, 0., 1., 0., 1e-5, 1000, 6, w, \
             &result, &error );
-        sb_mu2[i] = result;
+        sb_mu2[0][i] = result;
+    }
+
+    if (check>0) {
+
+      p.vv = 2;
+      for ( i = 0; i < nxy; i++ ) {
+          p.x2 = xp[i] * xp[i];
+          p.y2 = yp[i] * yp[i];
+          p.xy = xp[i] * yp[i];
+          F.params = &p;
+          gsl_integration_qag( &F, 0., 1., 0., 1e-5, 1000, 6, w, \
+              &result, &error );
+          sb_mu2[1][i] = result;
+      }
+
+      p.vv = 3;
+      for ( i = 0; i < nxy; i++ ) {
+          p.x2 = xp[i] * xp[i];
+          p.y2 = yp[i] * yp[i];
+          p.xy = xp[i] * yp[i];
+          F.params = &p;
+          gsl_integration_qag( &F, 0., 1., 0., 1e-5, 1000, 6, w, \
+              &result, &error );
+          sb_mu2[2][i] = result;
+      }
+
+    }
+    else {
+        for (i=0; i<nxy; i++) sb_mu2[1][i] = sb_mu2[0][i];
+        for (i=0; i<nxy; i++) sb_mu2[2][i] = sb_mu2[0][i];
     }
 
     gsl_integration_workspace_free( w );

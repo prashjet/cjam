@@ -205,8 +205,8 @@ def axi_cylin_rms(xp, yp, incl, lum_area, lum_sigma, lum_q, pot_area, pot_sigma,
     cdef double [:] c_pot_sigma
     cdef double [:] c_pot_q
     cdef double [:] c_beta
-    cdef double [:] c_rxx
-    cdef double [:] c_ryy
+    cdef double [:] c_rrr
+    cdef double [:] c_rff
     cdef double [:] c_rzz
 
     # set C arrays to be views into the input arrays
@@ -221,10 +221,10 @@ def axi_cylin_rms(xp, yp, incl, lum_area, lum_sigma, lum_q, pot_area, pot_sigma,
     c_beta = np.array(beta, dtype=np.double, copy=False)
 
     # create empty arrays to store the results and create C views into them
-    rxx = np.empty(nxy)
-    c_rxx = rxx
-    ryy = np.empty(nxy)
-    c_ryy = ryy
+    rrr = np.empty(nxy)
+    c_rrr = rrr
+    rff = np.empty(nxy)
+    c_rff = rff
     rzz = np.empty(nxy)
     c_rzz = rzz
 
@@ -232,9 +232,9 @@ def axi_cylin_rms(xp, yp, incl, lum_area, lum_sigma, lum_q, pot_area, pot_sigma,
     cython_jam.jam_axi_cylin_rms(&c_xp[0], &c_yp[0], nxy, incl,
         &c_lum_area[0], &c_lum_sigma[0], &c_lum_q[0], lum_total,
         &c_pot_area[0], &c_pot_sigma[0], &c_pot_q[0], pot_total,
-        &c_beta[0], nrad, nang, &c_rxx[0], &c_ryy[0], &c_rzz[0])
+        &c_beta[0], nrad, nang, &c_rrr[0], &c_rff[0], &c_rzz[0])
 
-    return rxx, ryy, rzz
+    return rrr, rff, rzz
 
 
 
@@ -263,7 +263,7 @@ def axisymmetric_cylin(xp, yp, tracer_mge, potential_mge, distance, beta=0, kapp
         potential_copy.sort("n")
 
     # calculate second moments
-    rxx, ryy, rzz = axi_cylin_rms(\
+    rrr, rff, rzz = axi_cylin_rms(\
         (xp*distance/u.rad).to("pc").value,
         (yp*distance/u.rad).to("pc").value,
         incl.to("rad").value,
@@ -275,11 +275,10 @@ def axisymmetric_cylin(xp, yp, tracer_mge, potential_mge, distance, beta=0, kapp
         potential_copy["q"],
         beta)
 
-    # put results into astropy table, also convert PMs to mas/yr
-    kms2masyr = (u.km/u.s*u.rad/distance).to("mas/yr")
+    # put results into astropy table
     moments = table.QTable()
-    moments["v2xx"] = rxx*kms2masyr**2
-    moments["v2yy"] = ryy*kms2masyr**2
+    moments["v2rr"] = rrr*(u.km/u.s)**2
+    moments["v2ff"] = rff*(u.km/u.s)**2
     moments["v2zz"] = rzz*(u.km/u.s)**2
 
     return moments

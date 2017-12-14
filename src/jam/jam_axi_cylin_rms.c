@@ -35,10 +35,10 @@
 void jam_axi_cylin_rms(double *xp, double *yp, int nxy, double incl, \
 double *lum_area, double *lum_sigma, double *lum_q, int lum_total, \
 double *pot_area, double *pot_sigma, double *pot_q, int pot_total, \
-double *beta, int nrad, int nang, double *rxx, double *ryy, double *rzz) {
+double *beta, int nrad, int nang, double *rrr, double *rff, double *rzz) {
 
     struct multigaussexp lum, pot;
-    double* mu;
+    double** mu;
     int i, check;
 
     // put luminous MGE components into structure
@@ -53,30 +53,24 @@ double *beta, int nrad, int nang, double *rxx, double *ryy, double *rzz) {
     pot.q = pot_q;
     pot.ntotal = pot_total;
 
-    // calculate xx moments and put into results array
-    mu = jam_axi_cylin_rms_mmt(xp, yp, nxy, incl, &lum, &pot, beta, nrad, nang, 1);
-    for (i=0; i<nxy; i++) rxx[i] = mu[i];
-
     // check for any non-zero beta or non-unity flattening
     check = 0;
     for (i=0; i<lum.ntotal; i++) if (beta[i]!=0.) check++;
     for (i=0; i<lum.ntotal; i++) if (lum_q[i]!=1.) check++;
     for (i=0; i<pot.ntotal; i++) if (pot_q[i]!=1.) check++;
 
-    // for anisotropic models, calculate the
-    if (check>0) {
-        mu = jam_axi_cylin_rms_mmt(xp, yp, nxy, incl, &lum, &pot, beta, nrad, nang, 2);
-        for (i=0; i<nxy; i++) ryy[i] = mu[i];
-        mu = jam_axi_cylin_rms_mmt(xp, yp, nxy, incl, &lum, &pot, beta, nrad, nang, 3);
-        for (i=0; i<nxy; i++) rzz[i] = mu[i];
-    }
-    else {
-        for (i=0; i<nxy; i++) ryy[i] = mu[i];
-        for (i=0; i<nxy; i++) rzz[i] = mu[i];
+    // calculate xx moments and put into results array
+    mu = jam_axi_cylin_rms_mmt(xp, yp, nxy, incl, &lum, &pot, beta, nrad, nang, check);
+    for (i=0; i<nxy; i++) {
+        rrr[i] = mu[0][i];
+        rff[i] = mu[1][i];
+        rzz[i] = mu[2][i];
     }
 
     // free memory
-    free(mu);
+    for ( i = 0; i < 3; i++ ) \
+        free( mu[i] );
+    free( mu );
 
     return;
 }
