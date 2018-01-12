@@ -56,6 +56,18 @@ struct params_rmsint {
     int vv;
 };
 
+struct params_cylinrmsint {
+    struct multigaussexp *lum, *pot;
+    double *kani, *s2l, *q2l, *s2q2l, *s2p, *e2p;
+    double r2, z2;
+    int vv;
+};
+
+struct params_potint {
+    struct multigaussexp *pot;
+    double *s2p, *e2p;
+    double r2, z2;
+};
 
 // ----------------------------------------------------------------------------
 
@@ -77,7 +89,7 @@ double* jam_axi_rms_mmt( double *,double *, int, double, \
 double* jam_axi_rms_wmmt( double *, double *, int, double, \
     struct multigaussexp *, struct multigaussexp *, double *, int );
 
-void jam_axi_cylin_rms(double *xp, double *yp, int nxy, double incl, \
+void jam_axi_cylin_rms(double *r, double *z, int nrz, double incl, \
     double *lum_area, double *lum_sigma, double *lum_q, int lum_total, \
     double *pot_area, double *pot_sigma, double *pot_q, int pot_total, \
     double *beta, int nrad, int nang, double *rrr, double *rff, double *rzz);
@@ -90,6 +102,19 @@ double** jam_axi_cylin_rms_mmt( double *,double *, int, double, \
 
 double** jam_axi_cylin_rms_wmmt( double *, double *, int, double, \
     struct multigaussexp *, struct multigaussexp *, double *, int );
+
+void jam_axi_pot(double *r, double *z, int nrz, double incl, \
+    double *pot_area, double *pot_sigma, double *pot_q, int pot_total, \
+    int nrad, int nang, double *potval);
+
+double jam_axi_pot_mgeint( double, void * );
+
+double* jam_axi_pot_mmt( double *,double *, int, double, \
+    struct multigaussexp *, \
+    int, int );
+
+double* jam_axi_pot_wmmt( double *, double *, int, double, \
+    struct multigaussexp * );
 
 void jam_axi_vel(double *xp, double *yp, int nxy, double incl, \
     double *lum_area, double *lum_sigma, double *lum_q, int lum_total, \

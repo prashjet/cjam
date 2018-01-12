@@ -36,24 +36,19 @@
 #include "../tools/tools.h"
 
 
-double **jam_axi_cylin_rms_wmmt( double *xp, double *yp, int nxy, double incl, \
+double **jam_axi_cylin_rms_wmmt( double *r, double *z, int nrz, double incl, \
         struct multigaussexp *lum, struct multigaussexp *pot, \
         double *beta, int check ) {
 
-    struct params_rmsint p;
+    struct params_cylinrmsint p;
     struct multigaussexp ilum, ipot;
-    double ci, si, *kani, *s2l, *q2l, *s2q2l, *s2p, *e2p;
+    double *kani, *s2l, *q2l, *s2q2l, *s2p, *e2p;
     double result, error, **sb_mu2;
     int i;
 
     // convert from projected MGEs to intrinsic MGEs
     ilum = mge_deproject( lum, incl );
     ipot = mge_deproject( pot, incl );
-
-    // angles
-    ci = cos( incl );
-    si = sin( incl );
-
 
     // mge component combinations
 
@@ -77,9 +72,6 @@ double **jam_axi_cylin_rms_wmmt( double *xp, double *yp, int nxy, double incl, \
     }
 
     // parameters for the integrand function
-    p.ci2 = ci * ci;
-    p.si2 = si * si;
-    p.cisi = ci * si;
     p.lum = &ilum;
     p.pot = &ipot;
     p.kani = kani;
@@ -98,37 +90,46 @@ double **jam_axi_cylin_rms_wmmt( double *xp, double *yp, int nxy, double incl, \
     // set up interpolation grid arrays
     sb_mu2 = (double **) malloc( 3 * sizeof( double * ) );
     for ( i = 0; i < 3; i++ ) \
-        sb_mu2[i] = (double *) malloc( nxy * sizeof( double ) );
+        sb_mu2[i] = (double *) malloc( nrz * sizeof( double ) );
 
+    // calculate vz dispersion
     p.vv = 1;
-    for ( i = 0; i < nxy; i++ ) {
-        p.x2 = xp[i] * xp[i];
-        p.y2 = yp[i] * yp[i];
-        p.xy = xp[i] * yp[i];
+    for ( i = 0; i < nrz; i++ ) {
+        p.r2 = r[i] * r[i];
+        p.z2 = z[i] * z[i];
         F.params = &p;
         gsl_integration_qag( &F, 0., 1., 0., 1e-5, 1000, 6, w, \
             &result, &error );
         sb_mu2[0][i] = result;
     }
 
+    // if there is at least one non spherical/isotropic component...
     if (check>0) {
 
-      p.vv = 2;
-      for ( i = 0; i < nxy; i++ ) {
-          p.x2 = xp[i] * xp[i];
-          p.y2 = yp[i] * yp[i];
-          p.xy = xp[i] * yp[i];
-          F.params = &p;
-          gsl_integration_qag( &F, 0., 1., 0., 1e-5, 1000, 6, w, \
-              &result, &error );
-          sb_mu2[1][i] = result;
+      // if all tracer components have same anisotropy...
+      if ( maximum( kani, lum->ntotal ) == minimum( kani, lum->ntotal ) ) {
+          double kani_all;
+          kani_all = maximum( kani, lum->ntotal );
+          for ( i = 0; i < nrz; i++ ) {
+              sb_mu2[1][i] = kani_all * sb_mu2[0][i];
+          }
+      }
+      else {
+          p.vv = 2;
+          for ( i = 0; i < nrz; i++ ) {
+              p.r2 = r[i] * r[i];
+              p.z2 = z[i] * z[i];
+              F.params = &p;
+              gsl_integration_qag( &F, 0., 1., 0., 1e-5, 1000, 6, w, \
+                  &result, &error );
+              sb_mu2[1][i] = result;
+          }
       }
 
       p.vv = 3;
-      for ( i = 0; i < nxy; i++ ) {
-          p.x2 = xp[i] * xp[i];
-          p.y2 = yp[i] * yp[i];
-          p.xy = xp[i] * yp[i];
+      for ( i = 0; i < nrz; i++ ) {
+          p.r2 = r[i] * r[i];
+          p.z2 = z[i] * z[i];
           F.params = &p;
           gsl_integration_qag( &F, 0., 1., 0., 1e-5, 1000, 6, w, \
               &result, &error );
@@ -136,9 +137,9 @@ double **jam_axi_cylin_rms_wmmt( double *xp, double *yp, int nxy, double incl, \
       }
 
     }
-    else {
-        for (i=0; i<nxy; i++) sb_mu2[1][i] = sb_mu2[0][i];
-        for (i=0; i<nxy; i++) sb_mu2[2][i] = sb_mu2[0][i];
+    else {    // i.e. isotropic and spherical
+        for (i=0; i<nrz; i++) sb_mu2[1][i] = sb_mu2[0][i];
+        for (i=0; i<nrz; i++) sb_mu2[2][i] = sb_mu2[0][i];
     }
 
     gsl_integration_workspace_free( w );

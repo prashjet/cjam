@@ -187,17 +187,17 @@ def axisymmetric(xp, yp, tracer_mge, potential_mge, distance, beta=0, kappa=0,
 
 
 
-def axi_cylin_rms(xp, yp, incl, lum_area, lum_sigma, lum_q, pot_area, pot_sigma, pot_q,
+def axi_cylin_rms(r, z, incl, lum_area, lum_sigma, lum_q, pot_area, pot_sigma, pot_q,
     beta, nrad=30, nang=7):
 
     # get array lengths needed for C
-    nxy = len(xp)
+    nrz = len(r)
     lum_total = len(lum_area)
     pot_total = len(pot_area)
 
     # set array types for C
-    cdef double [:] c_xp
-    cdef double [:] c_yp
+    cdef double [:] c_r
+    cdef double [:] c_z
     cdef double [:] c_lum_area
     cdef double [:] c_lum_sigma
     cdef double [:] c_lum_q
@@ -210,8 +210,8 @@ def axi_cylin_rms(xp, yp, incl, lum_area, lum_sigma, lum_q, pot_area, pot_sigma,
     cdef double [:] c_rzz
 
     # set C arrays to be views into the input arrays
-    c_xp = np.array(xp, dtype=np.double, copy=False)
-    c_yp = np.array(yp, dtype=np.double, copy=False)
+    c_r = np.array(r, dtype=np.double, copy=False)
+    c_z = np.array(z, dtype=np.double, copy=False)
     c_lum_area = np.array(lum_area, dtype=np.double, copy=False)
     c_lum_sigma = np.array(lum_sigma, dtype=np.double, copy=False)
     c_lum_q = np.array(lum_q, dtype=np.double, copy=False)
@@ -221,15 +221,15 @@ def axi_cylin_rms(xp, yp, incl, lum_area, lum_sigma, lum_q, pot_area, pot_sigma,
     c_beta = np.array(beta, dtype=np.double, copy=False)
 
     # create empty arrays to store the results and create C views into them
-    rrr = np.empty(nxy)
+    rrr = np.empty(nrz)
     c_rrr = rrr
-    rff = np.empty(nxy)
+    rff = np.empty(nrz)
     c_rff = rff
-    rzz = np.empty(nxy)
+    rzz = np.empty(nrz)
     c_rzz = rzz
 
     # now call the JAM code
-    cython_jam.jam_axi_cylin_rms(&c_xp[0], &c_yp[0], nxy, incl,
+    cython_jam.jam_axi_cylin_rms(&c_r[0], &c_z[0], nrz, incl,
         &c_lum_area[0], &c_lum_sigma[0], &c_lum_q[0], lum_total,
         &c_pot_area[0], &c_pot_sigma[0], &c_pot_q[0], pot_total,
         &c_beta[0], nrad, nang, &c_rrr[0], &c_rff[0], &c_rzz[0])
@@ -238,7 +238,7 @@ def axi_cylin_rms(xp, yp, incl, lum_area, lum_sigma, lum_q, pot_area, pot_sigma,
 
 
 
-def axisymmetric_cylin(xp, yp, tracer_mge, potential_mge, distance, beta=0, kappa=0,
+def axisymmetric_cylin(r, z, tracer_mge, potential_mge, distance, beta=0, kappa=0,
     nscale=1, mscale=1, incl=np.pi/2.*u.rad, mbh=0*u.Msun, rbh=0*u.arcsec,
     nrad=30, nang=7):
 
@@ -264,8 +264,8 @@ def axisymmetric_cylin(xp, yp, tracer_mge, potential_mge, distance, beta=0, kapp
 
     # calculate second moments
     rrr, rff, rzz = axi_cylin_rms(\
-        (xp*distance/u.rad).to("pc").value,
-        (yp*distance/u.rad).to("pc").value,
+        r.to("pc").value,
+        z.to("pc").value,
         incl.to("rad").value,
         (tracer_copy["i"]).to("Lsun/pc**2").value,
         (tracer_copy["s"]*distance/u.rad).to("pc").value,
@@ -282,3 +282,68 @@ def axisymmetric_cylin(xp, yp, tracer_mge, potential_mge, distance, beta=0, kapp
     moments["v2zz"] = rzz*(u.km/u.s)**2
 
     return moments
+
+def axi_pot(r, z, incl, pot_area, pot_sigma, pot_q, nrad=30, nang=7):
+
+    # get array lengths needed for C
+    nrz = len(r)
+    pot_total = len(pot_area)
+
+    # set array types for C
+    cdef double [:] c_r
+    cdef double [:] c_z
+    cdef double [:] c_pot_area
+    cdef double [:] c_pot_sigma
+    cdef double [:] c_pot_q
+    cdef double [:] c_pot
+
+    # set C arrays to be views into the input arrays
+    c_r = np.array(r, dtype=np.double, copy=False)
+    c_z = np.array(z, dtype=np.double, copy=False)
+    c_pot_area = np.array(pot_area, dtype=np.double, copy=False)
+    c_pot_sigma = np.array(pot_sigma, dtype=np.double, copy=False)
+    c_pot_q = np.array(pot_q, dtype=np.double, copy=False)
+
+    # create empty arrays to store the results and create C views into them
+    pot = np.empty(nrz)
+    c_pot = pot
+
+    # now call the JAM code
+    cython_jam.jam_axi_pot(&c_r[0], &c_z[0], nrz, incl,
+        &c_pot_area[0], &c_pot_sigma[0], &c_pot_q[0], pot_total,
+        nrad, nang, &c_pot[0])
+
+    return pot
+
+
+
+def axisymmetric_pot(r, z, potential_mge, distance,
+    mscale=1, incl=np.pi/2.*u.rad, mbh=0*u.Msun, rbh=0*u.arcsec,
+    nrad=30, nang=7):
+
+    # copy MGEs so that changes we make here aren't propagated
+    potential_copy = potential_mge.copy()
+
+    # adjust potential MGE by M/L
+    potential_copy["i"] *= mscale
+
+    # add BH to potential gaussian
+    if mbh>0 and rbh>0:
+        potential_copy.add_row([0, mbh/2/np.pi/(rbh*distance/u.rad).to("pc")**2,
+            rbh, 1])
+        potential_copy.sort("n")
+
+    # calculate potential
+    pot = axi_pot(\
+        r.to("pc").value,
+        z.to("pc").value,
+        incl.to("rad").value,
+        potential_copy["i"].to("Msun/pc**2").value,
+        (potential_copy["s"]*distance/u.rad).to("pc").value,
+        potential_copy["q"])
+
+    # return
+    pot = table.QTable()
+    pot["v2rr"] = pot*(u.km/u.s)**2
+
+    return pot

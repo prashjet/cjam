@@ -32,20 +32,13 @@
 #include "../mge/mge.h"
 
 
-void jam_axi_cylin_rms(double *r, double *z, int nrz, double incl, \
-double *lum_area, double *lum_sigma, double *lum_q, int lum_total, \
+void jam_axi_pot(double *r, double *z, int nrz, double incl, \
 double *pot_area, double *pot_sigma, double *pot_q, int pot_total, \
-double *beta, int nrad, int nang, double *rrr, double *rff, double *rzz) {
+int nrad, int nang, double *potval) {
 
-    struct multigaussexp lum, pot;
-    double** mu;
-    int i, check;
-
-    // put luminous MGE components into structure
-    lum.area = lum_area;
-    lum.sigma = lum_sigma;
-    lum.q = lum_q;
-    lum.ntotal = lum_total;
+    struct multigaussexp pot;
+    double* mu;
+    int i;
 
     // put potential MGE components into structure
     pot.area = pot_area;
@@ -53,23 +46,13 @@ double *beta, int nrad, int nang, double *rrr, double *rff, double *rzz) {
     pot.q = pot_q;
     pot.ntotal = pot_total;
 
-    // check for any non-zero beta or non-unity flattening
-    check = 0;
-    for (i=0; i<lum.ntotal; i++) if (beta[i]!=0.) check++;
-    for (i=0; i<lum.ntotal; i++) if (lum_q[i]!=1.) check++;
-    for (i=0; i<pot.ntotal; i++) if (pot_q[i]!=1.) check++;
-
     // calculate xx moments and put into results array
-    mu = jam_axi_cylin_rms_mmt(r, z, nrz, incl, &lum, &pot, beta, nrad, nang, check);
+    mu = jam_axi_pot_mmt(r, z, nrz, incl, &pot, nrad, nang);
     for (i=0; i<nrz; i++) {
-        rrr[i] = mu[1][i];
-        rff[i] = mu[2][i];
-        rzz[i] = mu[0][i];
+        potval[i] = mu[i];
     }
 
     // free memory
-    for ( i = 0; i < 3; i++ ) \
-        free( mu[i] );
     free( mu );
 
     return;
