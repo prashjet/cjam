@@ -81,7 +81,6 @@ double** jam_axi_cylin_rms_mmt( double *r, double *z, int nrz, double incl, \
 
     // ---------------------------------
 
-
     // elliptical radius of input (r,z)
     qmed = mge_qmed( &ilum, maximum( r, nrz ) );
     rell = (double *) malloc( nrz * sizeof( double ) );
@@ -133,7 +132,7 @@ double** jam_axi_cylin_rms_mmt( double *r, double *z, int nrz, double incl, \
         for ( k = 0; k < nang; k++ ) {
 
             l = j * nang + k;
-            dens = mge_dens( &ilum, rpol[l], z[l]);
+            dens = mge_dens( &ilum, rpol[l], zpol[l]);
 
             for ( i = 0; i < 3; i++ ) {
 
