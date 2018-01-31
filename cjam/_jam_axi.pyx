@@ -135,7 +135,7 @@ def axisymmetric(xp, yp, tracer_mge, potential_mge, distance, beta=0, kappa=0,
     tracer_copy["i"] *= nscale
 
     # adjust potential MGE by M/L
-    potential_copy["i"] *= mscale
+    potential_copy["i_mass"] = potential_copy["i"] * mscale
 
     # add BH to potential gaussian
     if mbh>0 and rbh>0:
@@ -151,7 +151,7 @@ def axisymmetric(xp, yp, tracer_mge, potential_mge, distance, beta=0, kappa=0,
         (tracer_copy["i"]).to("Lsun/pc**2").value,
         (tracer_copy["s"]*distance/u.rad).to("pc").value,
         tracer_copy["q"],
-        potential_copy["i"].to("Msun/pc**2").value,
+        potential_copy["i_mass"].to("Msun/pc**2").value,
         (potential_copy["s"]*distance/u.rad).to("pc").value,
         potential_copy["q"],
         beta,
@@ -188,7 +188,7 @@ def axisymmetric(xp, yp, tracer_mge, potential_mge, distance, beta=0, kappa=0,
 
 
 def axi_cylin_rms(r, z, incl, lum_area, lum_sigma, lum_q, pot_area, pot_sigma, pot_q,
-    beta, nrad=30, nang=7):
+    beta, nrad, nang):
 
     # get array lengths needed for C
     nrz = len(r)
@@ -239,7 +239,7 @@ def axi_cylin_rms(r, z, incl, lum_area, lum_sigma, lum_q, pot_area, pot_sigma, p
 
 
 def axisymmetric_cylin(r, z, tracer_mge, potential_mge, distance, beta=0, kappa=0,
-    nscale=1, mscale=1, incl=np.pi/2.*u.rad, mbh=0*u.Msun, rbh=0*u.arcsec,
+    nscale=1, mscale=u.Msun/u.Lsun, incl=np.pi/2.*u.rad, mbh=0*u.Msun, rbh=0*u.arcsec,
     nrad=30, nang=7):
 
     # make sure anisotropy and rotation arrays are the correct length
@@ -254,7 +254,7 @@ def axisymmetric_cylin(r, z, tracer_mge, potential_mge, distance, beta=0, kappa=
     tracer_copy["i"] *= nscale
 
     # adjust potential MGE by M/L
-    potential_copy["i"] *= mscale
+    potential_copy["i_mass"] = potential_copy["i"] * mscale
 
     # add BH to potential gaussian
     if mbh>0 and rbh>0:
@@ -270,10 +270,13 @@ def axisymmetric_cylin(r, z, tracer_mge, potential_mge, distance, beta=0, kappa=
         (tracer_copy["i"]).to("Lsun/pc**2").value,
         (tracer_copy["s"]*distance/u.rad).to("pc").value,
         tracer_copy["q"],
-        potential_copy["i"].to("Msun/pc**2").value,
+        potential_copy["i_mass"].to("Msun/pc**2").value,
         (potential_copy["s"]*distance/u.rad).to("pc").value,
         potential_copy["q"],
-        beta)
+        beta,
+        nrad,
+        nang
+        )
 
     # put results into astropy table
     moments = table.QTable()
@@ -283,7 +286,7 @@ def axisymmetric_cylin(r, z, tracer_mge, potential_mge, distance, beta=0, kappa=
 
     return moments
 
-def axi_pot(r, z, incl, pot_area, pot_sigma, pot_q, nrad=30, nang=7):
+def axi_pot(r, z, incl, pot_area, pot_sigma, pot_q, nrad, nang):
 
     # get array lengths needed for C
     nrz = len(r)
@@ -318,14 +321,14 @@ def axi_pot(r, z, incl, pot_area, pot_sigma, pot_q, nrad=30, nang=7):
 
 
 def axisymmetric_pot(r, z, potential_mge, distance,
-    mscale=1, incl=np.pi/2.*u.rad, mbh=0*u.Msun, rbh=0*u.arcsec,
+    mscale=u.Msun/u.Lsun, incl=np.pi/2.*u.rad, mbh=0*u.Msun, rbh=0*u.arcsec,
     nrad=30, nang=7):
 
     # copy MGEs so that changes we make here aren't propagated
     potential_copy = potential_mge.copy()
 
     # adjust potential MGE by M/L
-    potential_copy["i"] *= mscale
+    potential_copy["i_mass"] = potential_copy["i"] * mscale
 
     # add BH to potential gaussian
     if mbh>0 and rbh>0:
@@ -338,12 +341,11 @@ def axisymmetric_pot(r, z, potential_mge, distance,
         r.to("pc").value,
         z.to("pc").value,
         incl.to("rad").value,
-        potential_copy["i"].to("Msun/pc**2").value,
+        potential_copy["i_mass"].to("Msun/pc**2").value,
         (potential_copy["s"]*distance/u.rad).to("pc").value,
-        potential_copy["q"])
+        potential_copy["q"],
+        nrad,
+        nang
+        )
 
-    # return
-    pot = table.QTable()
-    pot["v2rr"] = pot*(u.km/u.s)**2
-
-    return pot
+    return pot*(u.km/u.s)**2
