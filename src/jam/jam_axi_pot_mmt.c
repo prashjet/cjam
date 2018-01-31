@@ -38,13 +38,13 @@
 #include "../interp/interp.h"
 
 
-double** jam_axi_pot_mmt( double *r, double *z, int nrz, double incl, \
+double* jam_axi_pot_mmt( double *r, double *z, int nrz, double incl, \
         struct multigaussexp *pot, \
         int nrad, int nang) {
 
     int i, j, k, l, npol;
     double qmed, *rell, *rinp, *einp, step, rmax, *lograd, *rad, *ang, *angvec;
-    double dens, *wm2, *mu, *mui, *rpol, *zpol, **mupol;
+    double *wm2, *mu, *mui, *rpol, *zpol, **mupol;
     struct multigaussexp ipot;
 
     // convert from projected MGEs to intrinsic MGEs
@@ -73,7 +73,7 @@ double** jam_axi_pot_mmt( double *r, double *z, int nrz, double incl, \
 
 
     // elliptical radius of input (r,z)
-    qmed = mge_qmed( &ilum, maximum( r, nrz ) );
+    qmed = mge_qmed( &ipot, maximum( r, nrz ) );
     rell = (double *) malloc( nrz * sizeof( double ) );
     for ( i = 0; i < nrz; i++ ) \
         rell[i] = sqrt( r[i] * r[i] + z[i] * z[i] / qmed / qmed );
@@ -104,13 +104,10 @@ double** jam_axi_pot_mmt( double *r, double *z, int nrz, double incl, \
     }
 
     // set up interpolation grid arrays
-    mupol = (double ***) malloc( 3 * sizeof( double ** ) );
-    for ( i = 0; i < 3; i++ ) {
-        mupol[i] = (double **) malloc( nrad * sizeof( double * ) );
-        for ( j = 0; j < nrad; j++ ) {
-            mupol[i][j] = (double *) malloc( ( 4 * nang - 3 ) * sizeof( double ) );
-        }
-    }
+      mupol = (double **) malloc( nrad * sizeof( double * ) );
+      for ( j = 0; j < nrad; j++ ) {
+          mupol[j] = (double *) malloc( ( 4 * nang - 3 ) * sizeof( double ) );
+      }
 
     // ---------------------------------
 
@@ -154,7 +151,6 @@ double** jam_axi_pot_mmt( double *r, double *z, int nrz, double incl, \
     free( rpol );
     free( zpol );
     for ( j = 0; j < nrad; j++ ) free( mupol[j] );
-    free( mupol );
     free( mupol );
     free( wm2 );
     free( rinp );

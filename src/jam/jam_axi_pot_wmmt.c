@@ -36,7 +36,7 @@
 #include "../tools/tools.h"
 
 
-double *jam_axi_cylin_rms_wmmt( double *r, double *z, int nrz, double incl, \
+double *jam_axi_pot_wmmt( double *r, double *z, int nrz, double incl, \
         struct multigaussexp *pot ) {
 
     struct params_potint p;
@@ -69,7 +69,7 @@ double *jam_axi_cylin_rms_wmmt( double *r, double *z, int nrz, double incl, \
     F.function = &jam_axi_pot_mgeint;
 
     // set up interpolation grid arrays
-    sb_mu2[i] = (double *) malloc( nrz * sizeof( double ) );
+    sb_mu2 = (double *) malloc( nrz * sizeof( double ) );
 
     // calculate vz dispersion
     for ( i = 0; i < nrz; i++ ) {

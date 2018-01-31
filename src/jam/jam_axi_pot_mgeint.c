@@ -27,11 +27,11 @@
 #include "jam.h"
 
 
-double jam_axi_cylin_rms_mgeint( double u, void *params ) {
+double jam_axi_pot_mgeint( double u, void *params ) {
 
     struct params_potint *p;
-    double e2u2p, f, expnt, sum;
-    int j, k;
+    double e2u2p, expnt, sum;
+    int j;
 
     double u2 = u * u;
 
