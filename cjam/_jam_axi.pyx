@@ -165,7 +165,7 @@ def axisymmetric(xp, yp, tracer_mge, potential_mge, distance, beta=0, kappa=0,
         (tracer_copy["i"]).to("Lsun/pc**2").value,
         (tracer_copy["s"]*distance/u.rad).to("pc").value,
         tracer_copy["q"],
-        potential_copy["i"].to("Msun/pc**2").value,
+        potential_copy["i_mass"].to("Msun/pc**2").value,
         (potential_copy["s"]*distance/u.rad).to("pc").value,
         potential_copy["q"],
         beta)

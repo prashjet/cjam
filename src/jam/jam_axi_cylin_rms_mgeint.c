@@ -46,10 +46,9 @@ double jam_axi_cylin_rms_mgeint( double u, void *params ) {
         for ( k = 0; k < p->lum->ntotal; k++ ) { // luminous gaussians
 
             c = p->e2p[j] - p->s2q2l[k] / p->s2p[j];
-            d = 1. - p->kani[k] * p->q2l[k] \
-                - ( ( 1. - p->kani[k] ) * c + p->e2p[j] * p->kani[k] ) * u2;
 
-            expnt2 = - 0.5 / p->s2l[j] * ( p->r2 + p->z2 / p->q2l[k] );
+            expnt2 = - 0.5 / p->s2l[k] * ( p->r2 + p->z2 / p->q2l[k] );
+            // expnt2 for taking nu(0,0) to local density nu(R,z)
 
             switch ( p->vv ) {
                 case 1: // v2zz
@@ -59,6 +58,8 @@ double jam_axi_cylin_rms_mgeint( double u, void *params ) {
                     f = p->kani[k] * p->s2q2l[k];
                     break;
                 case 3: // v2ff
+                    d = 1. - p->kani[k] * p->q2l[k] \
+                        - (( 1. - p->kani[k] ) * c + p->e2p[j] * p->kani[k])*u2;
                     f = d * p->r2 + p->kani[k] * p->s2q2l[k];
                     break;
                 default:
