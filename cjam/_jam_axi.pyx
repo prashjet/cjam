@@ -6,7 +6,7 @@ cimport cython_jam
 
 
 def axi_vel(xp, yp, incl, lum_area, lum_sigma, lum_q, pot_area, pot_sigma, pot_q,
-    beta, kappa, nrad=30, nang=7):
+    beta, kappa, nrad, nang):
 
     # get array lengths needed for C
     nxy = len(xp)
@@ -155,7 +155,9 @@ def axisymmetric(xp, yp, tracer_mge, potential_mge, distance, beta=0, kappa=0,
         (potential_copy["s"]*distance/u.rad).to("pc").value,
         potential_copy["q"],
         beta,
-        kappa)
+        kappa,
+        nrad,
+        nang)
 
     # calculate second moments
     rxx, ryy, rzz, rxy, rxz, ryz = axi_rms(\
@@ -182,6 +184,118 @@ def axisymmetric(xp, yp, tracer_mge, potential_mge, distance, beta=0, kappa=0,
     moments["v2xy"] = rxy*kms2masyr**2
     moments["v2xz"] = rxz*kms2masyr*u.km/u.s
     moments["v2yz"] = ryz*kms2masyr*u.km/u.s
+
+    return moments
+
+
+
+def axi_rms_los(xp, yp, incl, lum_area, lum_sigma, lum_q, pot_area, pot_sigma, pot_q,
+    beta, nrad, nang):
+
+    # get array lengths needed for C
+    nxy = len(xp)
+    lum_total = len(lum_area)
+    pot_total = len(pot_area)
+
+    # set array types for C
+    cdef double [:] c_xp
+    cdef double [:] c_yp
+    cdef double [:] c_lum_area
+    cdef double [:] c_lum_sigma
+    cdef double [:] c_lum_q
+    cdef double [:] c_pot_area
+    cdef double [:] c_pot_sigma
+    cdef double [:] c_pot_q
+    cdef double [:] c_beta
+    cdef double [:] c_rzz
+
+    # set C arrays to be views into the input arrays
+    c_xp = np.array(xp, dtype=np.double, copy=False)
+    c_yp = np.array(yp, dtype=np.double, copy=False)
+    c_lum_area = np.array(lum_area, dtype=np.double, copy=False)
+    c_lum_sigma = np.array(lum_sigma, dtype=np.double, copy=False)
+    c_lum_q = np.array(lum_q, dtype=np.double, copy=False)
+    c_pot_area = np.array(pot_area, dtype=np.double, copy=False)
+    c_pot_sigma = np.array(pot_sigma, dtype=np.double, copy=False)
+    c_pot_q = np.array(pot_q, dtype=np.double, copy=False)
+    c_beta = np.array(beta, dtype=np.double, copy=False)
+
+    # create empty arrays to store the results and create C views into them
+    rzz = np.empty(nxy)
+    c_rzz = rzz
+
+    # now call the JAM code
+    cython_jam.jam_axi_rms_los(&c_xp[0], &c_yp[0], nxy, incl,
+        &c_lum_area[0], &c_lum_sigma[0], &c_lum_q[0], lum_total,
+        &c_pot_area[0], &c_pot_sigma[0], &c_pot_q[0], pot_total,
+        &c_beta[0], nrad, nang, &c_rzz[0])
+
+    return rzz
+
+
+
+def axisymmetric_los(xp, yp, tracer_mge, potential_mge, distance, beta=0, kappa=0,
+    nscale=1, mscale=1, incl=np.pi/2.*u.rad, mbh=0*u.Msun, rbh=0*u.arcsec,
+    nrad=30, nang=7):
+
+    # make sure anisotropy and rotation arrays are the correct length
+    beta = np.ones(len(tracer_mge))*beta
+    kappa = np.ones(len(tracer_mge))*kappa
+
+    # copy MGEs so that changes we make here aren't propagated
+    tracer_copy = tracer_mge.copy()
+    potential_copy = potential_mge.copy()
+
+    # adjust tracer MGE by Nscale
+    tracer_copy["i"] *= nscale
+
+    # adjust potential MGE by M/L
+    potential_copy["i_mass"] = potential_copy["i"] * mscale
+
+    # add BH to potential gaussian
+    if mbh>0 and rbh>0:
+        potential_copy.add_row([0, mbh/2/np.pi/(rbh*distance/u.rad).to("pc")**2,
+            rbh, 1])
+        potential_copy.sort("n")
+
+    # calculate first moments
+    vx, vy, vz = axi_vel(\
+        (xp*distance/u.rad).to("pc").value,
+        (yp*distance/u.rad).to("pc").value,
+        incl.to("rad").value,
+        (tracer_copy["i"]).to("Lsun/pc**2").value,
+        (tracer_copy["s"]*distance/u.rad).to("pc").value,
+        tracer_copy["q"],
+        potential_copy["i_mass"].to("Msun/pc**2").value,
+        (potential_copy["s"]*distance/u.rad).to("pc").value,
+        potential_copy["q"],
+        beta,
+        kappa,
+        nrad,
+        nang)
+
+    # calculate second moments
+    rzz = axi_rms_los(\
+        (xp*distance/u.rad).to("pc").value,
+        (yp*distance/u.rad).to("pc").value,
+        incl.to("rad").value,
+        (tracer_copy["i"]).to("Lsun/pc**2").value,
+        (tracer_copy["s"]*distance/u.rad).to("pc").value,
+        tracer_copy["q"],
+        potential_copy["i_mass"].to("Msun/pc**2").value,
+        (potential_copy["s"]*distance/u.rad).to("pc").value,
+        potential_copy["q"],
+        beta,
+        nrad,
+        nang)
+
+    # put results into astropy table, also convert PMs to mas/yr
+    kms2masyr = (u.km/u.s*u.rad/distance).to("mas/yr")
+    moments = table.QTable()
+    moments["vx"] = vx*kms2masyr
+    moments["vy"] = vy*kms2masyr
+    moments["vz"] = vz*u.km/u.s
+    moments["v2zz"] = rzz*(u.km/u.s)**2
 
     return moments
 
